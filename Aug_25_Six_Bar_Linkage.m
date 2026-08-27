@@ -261,31 +261,126 @@ vS4_G = V_S4_F + V_F_G;
 
 % Class Participation:
 
-% Velocity at Joint E
-vE_F = cross(omega_EF, F-E);
+% % Velocity at Joint E
+% vE_F = cross(omega_EF, F-E);
+% 
+% 
+% % Velocity at Joint A
+% vA_B = cross(omega_AB, A-B);
+% vG_A = vE_A + vA_B; % Velocity of G with respect to A
+% disp('Velocity at Joint A:');
+% disp(vG_A);
+% 
+% 
+% % Velocity at Joint F
+% vF_G = cross(omega_FG, G-F);
+% vF_E = vE_F + vF_G; % Velocity of F with respect to E
+% 
+% % Center of mass velocity at Joint F
+% disp('Velocity at Joint F:');
+% disp(vF_E);
+% 
+% % Velocity at Joint G
+% vG_A = vF_E + vF_G; % Velocity of G with respect to A
+% 
+% % Center of mass velocity at Joint G
+% vG_E = vF_E + vF_G; % Velocity of G with respect to E
+% disp('Velocity at Joint G:');
+% disp(vG_E);
 
 
-% Velocity at Joint A
-vA_B = cross(omega_AB, A-B);
-vG_A = vE_A + vA_B; % Velocity of G with respect to A
-disp('Velocity at Joint A:');
-disp(vG_A);
+% Accelerations at com of every link
 
+aS1_A = cross(alpha_AB, S1-A) + cross(omega_AB, cross(omega_AB, S1-A));
 
-% Velocity at Joint F
-vF_G = cross(omega_FG, G-F);
-vF_E = vE_F + vF_G; % Velocity of F with respect to E
+aS2_A = cross(alphaBEC_vector, S2-B) + cross(omegaBEC, cross(omegaBEC, S2-B));
 
-% Center of mass velocity at Joint F
-disp('Velocity at Joint F:');
-disp(vF_E);
+aS3_D = cross(alphaCD_vector, S3-D) + cross(omegaCD, cross(omegaCD, S3-d));
 
-% Velocity at Joint G
-vG_A = vF_E + vF_G; % Velocity of G with respect to A
+aS4_G = cross([0 0 alphaEF], S4-F) + cross(omega_EF, cross(angVel_EF, S4-f));
 
-% Center of mass velocity at Joint G
-vG_E = vF_E + vF_G; % Velocity of G with respect to E
-disp('Velocity at Joint G:');
-disp(vG_E);
+aS5_G = cross([0 0 alphaFG], S5-G) + cross(angVel_FG, cross(angVel_FG, S5-G));
 
-%test
+% Newton's Second Law Implementation
+
+MassAB = 1;
+MassBEC = 1;
+MassCD = 1;
+MassEF = 1;
+MassFG = 1;
+
+% Mass Moment of Inertia (w.r.t. center of mass)
+J_AB = 1;
+J_BEC = 1;
+J_CD = 1;
+J_EF = 1;
+J_FG = 1;
+
+syms NFAx NFAy NFBx NFBy NFCx NFCy NFDx NFDy NFEx NFEy NFFx NFFy NFGx NFGy NTin
+
+% Define Forces
+
+NForceA = [NAFx NAFy 0];
+NForceB = [NFBx, NFBy, 0];
+NForceC = [NFCx, NFCy, 0];
+NForceD = [NFDx, NFDy, 0];
+NForceE = [NFEx, NFEy, 0];
+NForceF = [NFFx, NFFy, 0];
+NForceG = [NFGx, NFGy, 0];
+NInputTorque = [0, 0, NTin];
+
+% Equations for Link AB
+% sum of forces
+eqn15 = NForceA + NForceB + WAB == MassAB * aS1_A;
+
+% Sum of moments = 0
+eqn16 = cross(A-S1, NForceA) + cross(B-S1, NForceB) + NInputTorque == J_AB * alpha_AB;
+
+% Equations for Link BEC
+% Sum of Forces
+eqn17 = -NForceB + NForceC + NForceE + WBEC == MassBEC * aS2_A;
+
+% sum of moments 
+eqn18 = cross(B-S2, -FForceB) + cross(C-S2, NForceC) + cross(E-S2, NForceE) == J_BEC * alphaBEC_vector;
+
+% Equations for Link CD
+% sum of Forces
+eqn19 = -NForceC + NForceD + WCD == MassCD * aS3_D;
+
+% sum of moments
+eqn20 = cross(C-S3, -NForceC) + cross(D-S3, NForceD) == J_CD * alphaCD_vector;
+
+% Equations for Link EF
+% Sum of Forces
+eqn21 = -NForceE + NForceF + WEF == MassEF * aS4_G;
+
+% sum of moments
+eqn22 = cross(E-S4, -NForceE) + cross(F-S4, NForceF) == J_EF * [0 0 alphaEF];
+
+% Equations for Link FG
+% sum of forces
+eqn23 = -NForceF + NForceG + WFG + AppliedForce == MassFG * aS5_G;
+
+% sum of moments
+eqn24 = cross(F-S5, -NForceF) + cross(G-S5, NForceG) == J_FG * [0 0 alphaFG];
+
+% solving equations
+NeqnMatrix = [eqn15, eqn16, eqn17, eqn18, eqn19, eqn20, eqn21, eqn22, eqn23, eqn24];
+DynamicSolution = solve(NeqnMatrix, [NAFx, NAFy, NFBx, NFBy, NFCx, NFCy, NFDx, NFDy, NFEx, NFEy, NFFx, NFFy, NFGx, NFGy, NTin]);
+
+% Extract forces from the dynamic solution
+NForce_Ax = double(DynamicSolution.NFAx);
+NForce_Ay = double(DynamicSolution.NFAy);
+NForce_Bx = double(DynamicSolution.NFBx);
+NForce_By = double(DynamicSolution.NFBy);
+NForce_Cx = double(DynamicSolution.NFCx);
+NForce_Cy = double(DynamicSolution.NFCy);
+NForce_Dx = double(DynamicSolution.NFDx);
+NForce_Dy = double(DynamicSolution.NFDy);
+NForce_Ex = double(DynamicSolution.NFEx);
+NForce_Ey = double(DynamicSolution.NFEy);
+NForce_Fx = double(DynamicSolution.NFFx);
+NForce_Fy = double(DynamicSolution.NFFy);
+NForce_Gx = double(DynamicSolution.NFGx);
+NForce_Gy = double(DynamicSolution.NFGy);
+NTorque_in = double(DynamicSolution.NTin);
