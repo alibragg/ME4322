@@ -257,4 +257,35 @@ V_F_G = cross(angVel_FG, F-G);
 
 vS4_G = V_S4_F + V_F_G;
 
+
+
+% Class Participation:
+
+% Velocity at Joint E
+vE_F = cross(omega_EF, F-E);
+
+
+% Velocity at Joint A
+vA_B = cross(omega_AB, A-B);
+vG_A = vE_A + vA_B; % Velocity of G with respect to A
+disp('Velocity at Joint A:');
+disp(vG_A);
+
+
+% Velocity at Joint F
+vF_G = cross(omega_FG, G-F);
+vF_E = vE_F + vF_G; % Velocity of F with respect to E
+
+% Center of mass velocity at Joint F
+disp('Velocity at Joint F:');
+disp(vF_E);
+
+% Velocity at Joint G
+vG_A = vF_E + vF_G; % Velocity of G with respect to A
+
+% Center of mass velocity at Joint G
+vG_E = vF_E + vF_G; % Velocity of G with respect to E
+disp('Velocity at Joint G:');
+disp(vG_E);
+
 %test
