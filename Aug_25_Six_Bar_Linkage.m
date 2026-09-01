@@ -13,6 +13,17 @@ E = [18 35 0];
 F = [43 32 0];
 G = [45 17 0];
 
+% joint values
+% store the positions for plotting 
+new_B_x(1) = B(1);
+new_B_y(1) = B(2);
+new_C_x(1) = C(1);
+new_C_y(1) = C(2);
+new_E_x(1) = E(1);
+new_E_y(1) = E(2);
+new_F_x(1) = F(1);
+new_F_y(1) = F(2);
+
 % Define the lengths of the links
 lAB = norm(B - A);
 lBC = norm(C - B);
@@ -20,6 +31,7 @@ lCD = norm(D - C);
 lBE = norm(E - B);
 lEF = norm(F - E);
 lFG = norm(G - F);
+lCE = norm(E - C);
 
 % Weight of Each Link
 WAB = [0 -1 0];
@@ -295,9 +307,9 @@ aS1_A = cross(alpha_AB, S1-A) + cross(omega_AB, cross(omega_AB, S1-A));
 
 aS2_A = cross(alphaBEC_vector, S2-B) + cross(omegaBEC, cross(omegaBEC, S2-B));
 
-aS3_D = cross(alphaCD_vector, S3-D) + cross(omegaCD, cross(omegaCD, S3-d));
+aS3_D = cross(alphaCD_vector, S3-D) + cross(omegaCD, cross(omegaCD, S3-D));
 
-aS4_G = cross([0 0 alphaEF], S4-F) + cross(omega_EF, cross(angVel_EF, S4-f));
+aS4_G = cross([0 0 alphaEF], S4-F) + cross(omega_EF, cross(angVel_EF, S4-F));
 
 aS5_G = cross([0 0 alphaFG], S5-G) + cross(angVel_FG, cross(angVel_FG, S5-G));
 
@@ -320,7 +332,7 @@ syms NFAx NFAy NFBx NFBy NFCx NFCy NFDx NFDy NFEx NFEy NFFx NFFy NFGx NFGy NTin
 
 % Define Forces
 
-NForceA = [NAFx NAFy 0];
+NForceA = [NFAx NFAy 0];
 NForceB = [NFBx, NFBy, 0];
 NForceC = [NFCx, NFCy, 0];
 NForceD = [NFDx, NFDy, 0];
@@ -341,7 +353,7 @@ eqn16 = cross(A-S1, NForceA) + cross(B-S1, NForceB) + NInputTorque == J_AB * alp
 eqn17 = -NForceB + NForceC + NForceE + WBEC == MassBEC * aS2_A;
 
 % sum of moments 
-eqn18 = cross(B-S2, -FForceB) + cross(C-S2, NForceC) + cross(E-S2, NForceE) == J_BEC * alphaBEC_vector;
+eqn18 = cross(B-S2, -ForceB) + cross(C-S2, NForceC) + cross(E-S2, NForceE) == J_BEC * alphaBEC_vector;
 
 % Equations for Link CD
 % sum of Forces
@@ -366,7 +378,7 @@ eqn24 = cross(F-S5, -NForceF) + cross(G-S5, NForceG) == J_FG * [0 0 alphaFG];
 
 % solving equations
 NeqnMatrix = [eqn15, eqn16, eqn17, eqn18, eqn19, eqn20, eqn21, eqn22, eqn23, eqn24];
-DynamicSolution = solve(NeqnMatrix, [NAFx, NAFy, NFBx, NFBy, NFCx, NFCy, NFDx, NFDy, NFEx, NFEy, NFFx, NFFy, NFGx, NFGy, NTin]);
+DynamicSolution = solve(NeqnMatrix, [NFAx, NFAy, NFBx, NFBy, NFCx, NFCy, NFDx, NFDy, NFEx, NFEy, NFFx, NFFy, NFGx, NFGy, NTin]);
 
 % Extract forces from the dynamic solution
 NForce_Ax = double(DynamicSolution.NFAx);
@@ -384,3 +396,138 @@ NForce_Fy = double(DynamicSolution.NFFy);
 NForce_Gx = double(DynamicSolution.NFGx);
 NForce_Gy = double(DynamicSolution.NFGy);
 NTorque_in = double(DynamicSolution.NTin);
+
+
+
+% Circle Intersection Technique (8/28 Class)
+
+% joint coordinates have been defined
+% length of links also defined 
+
+% compute initial angle of input link AB
+
+initial_theta = atan2(B(2)-A(2), B(1)-A(1));
+
+if (initial_theta < 0)
+    inputAngle = 2*pi + initial_theta; % in radians
+else
+    inputAngle = initial_theta;
+end
+
+for theta = 1:1:360 % increment the input angle by 1 degree until 360 degrees
+    % new position of joint B
+
+    B_new = A + [lAB*cos(inputAngle+deg2rad(theta)) lAB*sin(inputAngle+deg2rad(theta)) 0];
+
+    % new position of joint C
+    % with B_new as center, BC as radius
+    % with D as center and DC as radius
+
+    [Cx, Cy] = circcirc(B+new(1), B_new(2), lBC, D(1), D(2), lCD);
+
+    % Monday 8/31 Class
+
+    % check if there is a NaN (not a number)
+
+    circIntersect_x = any(isnan(vpa(Cx)));
+    circIntersect_y = any(isnan(vpa(Cy)));
+
+    if circIntersect_x == 0 && circIntersect_y == 0
+        C_1 = [Cx(1) Cy(1) 0];
+        C_2 = [Cx(2) Cy(2) 0 ];
+
+        % distance to determine whether C_1 or C_2 is correct
+
+        dist1 = norm(C_1-C);
+        dist2 = norm(C_2-C);
+
+        if(dist1 < dist2)
+            C_new = vpa(C_1);
+        else
+            C_new = vpa(C_2);
+        end
+
+        % new position of Joint E using B_new and C_new
+
+        [Ex, Ey] = circcirc(B_new(1), B_new(2), lBE, C_new(1), C_new(2), lCE);
+
+        % check if there is NaN
+
+        circIntersect_x_E = any(isnan(vpa(Ex)));
+        circIntersect_y_E = any(isnan(vpa(Ey)));
+
+        if circIntersect_x==0 && circIntersect_y==0
+            E_1 = [Ex(1) Ey(1) 0];
+            E_2 = [Ex(2) Ey(2) 0];
+
+            % distance to determine whether E_1 or E_2 is correct
+            dist1 = norm(E_1-E);
+            dist2 = norm(E_2-E);
+
+            if(dist1<dist2)
+                E_new = vpa(E_1);
+            else
+                E_new = vpa(E_2);
+            end
+        end
+
+        % New position of Joing F using E_new and G
+        [Fx, Fy] = circcirc(E_new(1), E_new(2), lEF, G(1), G(2), lFG);
+
+        % checking if NaN
+        circIntersect_x_F = any(isnan(vpa(Fx)));
+        circIntersect_y_F = any(isnan(vpa(Fy)));
+
+        if circIntersect_x_F == 0 && circIntersect_y_F==0
+            F_1 = [Fx(1) Fy(2) 0];
+            F_2 = [Fx(2) Fy(2) 0];
+
+            % distance to determine whether F_1 or F_2 is correct
+            distF1 = norm(F_1 - F);
+            distF2 = norm(F_2 - F);
+
+            if(distF1 < distF2)
+                F_new = vpa(F_1);
+            else
+                F_new = vpa(F_2);
+            end
+        
+
+        % Store values for plotting
+
+        new_B_x(theta+1) = B_new(1);
+        new_B_y(theta+1) = B_new(2);
+        new_C_x(theta+1) = C_new(1);
+        new_C_y(theta+1) = C_new(2);
+        new_E_x(theta+1) = E_new(1);
+        new_E_y(theta+1) = E_new(2);
+        new_F_x(theta+1) = F_new(1);
+        new_F_y(theta+1) = F_new(2);
+
+        B=B_new;
+        C=C_new;
+        E=E_new;
+        F=F_new;
+
+        % static equilibrium code
+             % add center of mass from above all the way to all forces and input torque
+             % Force_Ax(theta+1) ...
+             % save all results into a single matrix. do a plot
+
+        % velocity and acceleration
+
+        % newton's second law
+
+        else
+            fprintf('New position of F cannot be determined at angle: %d degree', theta);
+        end
+
+    else
+        fprintf('New position of E cannot be determined at angle" %d degree', theta);
+    end
+
+    else
+        fprintf('New position of C cannot be determined at angle: %d degree', theta);
+    end
+
+end
